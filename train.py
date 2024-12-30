@@ -1,4 +1,5 @@
 import os
+import uuid
 import librosa
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -70,6 +71,6 @@ if __name__ == "__main__":
 
 
     # Eğitilen modeli kaydediyoruz
-    save_model(model, "emotion_recognition_model.joblib")
+    save_model(model, f"emotion_recognition_model_{uuid.uuid4()}.joblib")
 
 

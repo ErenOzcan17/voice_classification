@@ -59,7 +59,7 @@ async def process_labels(labels_dir, output_dir, chunk_duration=3000):
 
 if __name__ == "__main__":
     # Replace 'labels' with the path to your directory containing .wav files
-    labels_directory = "labels/uzgun"
+    labels_directory = "labels/mutlu"
     # Replace 'output' with the desired output directory
     output_directory = "output"
 
