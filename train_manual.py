@@ -1,11 +1,10 @@
+import numpy as np
 import os
 import uuid
 import librosa
-import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
-import joblib
 
 # Initialize the model
 model = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
@@ -20,7 +19,16 @@ def extract_features(file_path):
         print(f"Error processing {file_path}: {e}")
         return None
 
-def train_model(data, labels):
+def select_features(data, feature_indices):
+    """
+    Manuel olarak seçilen özelliklere göre veriyi filtreler.
+    :param data: Tüm özellikleri içeren veri (n_samples x n_features)
+    :param feature_indices: Seçilen özelliklerin indeksleri
+    :return: Filtrelenmiş veri
+    """
+    return data[:, feature_indices]
+
+def train_model(data, labels, selected_features=None):
     # Convert to numpy arrays
     data = np.array(data)
     labels = np.array(labels)
@@ -28,26 +36,34 @@ def train_model(data, labels):
     # Train-test split
     train_data, test_data, train_labels, test_labels = train_test_split(data, labels, test_size=0.2, random_state=42)
 
+    # Manuel özellik seçimi
+    if selected_features is not None:
+        train_data = select_features(train_data, selected_features)
+        test_data = select_features(test_data, selected_features)
+
     # Train the model
     model.fit(train_data, train_labels)
+
 
     # Evaluate the model
     predictions = model.predict(test_data)
     report = classification_report(test_labels, predictions)
-    print("Model Evaluation Report:")
+    print("Model Evaluation Report (Manual Feature Selection):")
     print(report)
 
-    # Feature importances ve indeksleri bir listeye ekle
-    importances = [(i + 1, importance) for i, importance in enumerate(model.feature_importances_) if importance > 0]
+    return model
 
-    # Listeyi importance değerine göre büyükten küçüğe sırala
-    importances.sort(key=lambda x: x[1], reverse=True)
-
-    # Sıralı listeyi yazdır
-    print("Feature Importances:")
-    for feature, importance in importances:
-        print(f"Feature {feature} (MFCC index): MFCC {feature} with importance: {importance}")
-
+def display_selected_features(feature_indices, total_features):
+    """
+    Seçilen özelliklerin indekslerini ve anlamlarını görüntüler.
+    :param feature_indices: Seçilen özelliklerin indeksleri
+    :param total_features: Tüm özelliklerin toplam sayısı
+    """
+    feature_names = [f"MFCC_{i}" for i in range(total_features)]  # Örnek isimler MFCC_0, MFCC_1 ...
+    selected_feature_names = [feature_names[i] for i in feature_indices]
+    print("Seçilen Özellikler:")
+    for idx, name in zip(feature_indices, selected_feature_names):
+        print(f"İndeks: {idx}, Özellik Adı: {name}")
 
 # Main script
 if __name__ == "__main__":
@@ -66,13 +82,20 @@ if __name__ == "__main__":
                     data.append(features)
                     target_labels.append(label)
 
+    # Manuel seçilen özelliklerin indeksleri (örnek: ilk 10 özellik)
+    selected_feature_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # Seçilen özelliklerin anlamlarını görüntüle
+    if data:
+        display_selected_features(selected_feature_indices, total_features=len(data[0]))
+
     # Train the model
     if data and target_labels:
-        train_model(data, target_labels)
+        model = train_model(data, target_labels, selected_features=selected_feature_indices)
     else:
         print("No data available for training.")
 
     # Save model
+    import joblib
     def save_model(model, filename):
         try:
             joblib.dump(model, filename)

@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
-import joblib
+from sklearn.feature_selection import SelectFromModel
 
 # Initialize the model
 model = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
@@ -20,6 +20,23 @@ def extract_features(file_path):
         print(f"Error processing {file_path}: {e}")
         return None
 
+
+def print_selected_feature_names(selector, feature_importance, feature_names):
+    # Get the indices of the selected features
+    selected_indices = selector.get_support(indices=True)
+
+    # Özellikleri ve importans değerlerini bir listeye ekle
+    selected_features = [(idx, feature_names[idx], feature_importance[idx]) for idx in selected_indices]
+
+    # Importans değerine göre sıralama (büyükten küçüğe)
+    selected_features.sort(key=lambda x: x[2], reverse=True)
+
+    # Sıralı listeyi yazdır
+    print("Top 10 Important Features (Index):")
+    for idx, name, importance in selected_features:
+        print(f"Feature {idx + 1} (MFCC index): {name} with importance: {importance}")
+
+
 def train_model(data, labels):
     # Convert to numpy arrays
     data = np.array(data)
@@ -31,23 +48,34 @@ def train_model(data, labels):
     # Train the model
     model.fit(train_data, train_labels)
 
+    # Feature importance and selection
+    feature_importance = model.feature_importances_
+    print("Feature Importances:", feature_importance)
+
+    # Select the top 10 most important features (can adjust based on your requirement)
+    selector = SelectFromModel(model, max_features=10, importance_getter='auto')
+    selector.fit(train_data, train_labels)
+
+    # Get the selected features
+    selected_train_data = selector.transform(train_data)
+    selected_test_data = selector.transform(test_data)
+
+    # Retrain the model using only the selected features
+    model.fit(selected_train_data, train_labels)
+
     # Evaluate the model
-    predictions = model.predict(test_data)
+    predictions = model.predict(selected_test_data)
     report = classification_report(test_labels, predictions)
-    print("Model Evaluation Report:")
+    print("Model Evaluation Report (After Feature Selection):")
     print(report)
 
-    # Feature importances ve indeksleri bir listeye ekle
-    importances = [(i + 1, importance) for i, importance in enumerate(model.feature_importances_) if importance > 0]
+    # Feature names are MFCC 1, MFCC 2, ..., MFCC 40
+    feature_names = [f"MFCC {i+1}" for i in range(40)]
 
-    # Listeyi importance değerine göre büyükten küçüğe sırala
-    importances.sort(key=lambda x: x[1], reverse=True)
+    # Print selected features
+    print_selected_feature_names(selector, feature_importance, feature_names)
 
-    # Sıralı listeyi yazdır
-    print("Feature Importances:")
-    for feature, importance in importances:
-        print(f"Feature {feature} (MFCC index): MFCC {feature} with importance: {importance}")
-
+    return model
 
 # Main script
 if __name__ == "__main__":
@@ -68,11 +96,12 @@ if __name__ == "__main__":
 
     # Train the model
     if data and target_labels:
-        train_model(data, target_labels)
+        model = train_model(data, target_labels)
     else:
         print("No data available for training.")
 
     # Save model
+    import joblib
     def save_model(model, filename):
         try:
             joblib.dump(model, filename)
